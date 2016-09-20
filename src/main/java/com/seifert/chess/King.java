@@ -11,6 +11,8 @@ package com.seifert.chess;
  * @author  ZZ3JPZ
  */
 import java.awt.*;
+
+import javax.swing.JOptionPane;
 /** Implements the king. */
 public class King extends ChessPiece {
     
@@ -70,6 +72,12 @@ public class King extends ChessPiece {
         
         Square sq = (Square)this.getParent();
         Board board = (Board)sq.getParent().getParent();
+        
+        // make sure the player is not currently in check
+        if (board.check(board.getWhoseMove(), false) != Board.NO_CHECK) {
+        	return false;
+        }
+        
         int iRowFactor = 0;
         int iColFactor = 0;
         switch (board.getPosition()) {                
@@ -99,7 +107,8 @@ public class King extends ChessPiece {
             if (iRow > 7 || iRow < 0 || iCol > 7 || iCol < 0) {
                 return false;
             }
-            ChessPiece castlePiece = board.getSquare(iRow, iCol).getPiece();
+            Square square = board.getSquare(iRow, iCol);
+            ChessPiece castlePiece = square.getPiece();
             if (castlePiece.getType() == ChessPiece.ROOK) {
                 // check to make sure the rook has not moved
                 if (castlePiece.getNumMoves() != 0) {
@@ -108,6 +117,8 @@ public class King extends ChessPiece {
                 break;                        
             }
             else if (castlePiece.getType() != ChessPiece.EMPTY) {
+                return false;
+            } else if (i <= 2 && isCheck(square)) {
                 return false;
             }
             i++;
@@ -195,6 +206,33 @@ public class King extends ChessPiece {
         
         // log the castle
         Chess.logger.info(board.getPlayerName(player) + " castled " + strDirection);
+        
+        // check to see if player is in check or check mate
+        int chk = board.check(board.getWhoseMove(), true);
+        if (chk == Board.CHECK) {
+        	Chess.playSound("sounds/check.wav");
+            // alert the user
+            JOptionPane.showMessageDialog(this.getTopLevelAncestor(), "Check.", "Check", JOptionPane.INFORMATION_MESSAGE);
+            // log the check
+            Chess.logger.info(board.getPlayerName(board.getWhoseMove()) + " is in check.");
+        }
+        else if (chk == Board.CHECK_MATE) {
+        	Chess.playSound("sounds/check_mate.wav");
+            // indicate that the game is over                    
+            String msg = "Check Mate.  " + board.getPlayerName(player) + " wins.";
+            JOptionPane.showMessageDialog(this.getTopLevelAncestor(), msg, "Check Mate", JOptionPane.INFORMATION_MESSAGE);
+            board.setWhoseMove(Board.GAME_OVER + player);
+            // log the check mate
+            Chess.logger.info(msg);
+        }
+        
+        if (board.isAutoRotate() && !(board instanceof NetBoard)) {
+        	board.rotate();
+			Chess chess = (Chess) board.getTopLevelAncestor();
+            chess.setFiller(board.getPosition());
+            board.rotate();
+        	chess.setFiller(board.getPosition());
+        }
         
         // refresh the screen
         board.validate();

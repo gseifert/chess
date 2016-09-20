@@ -13,7 +13,9 @@ package com.seifert.chess;
 import java.io.*;
 public class Move implements Serializable {
     private Square startSquare = null, endSquare = null;
-    private ChessPiece capturedPiece = null;    
+    private ChessPiece capturedPiece = null;
+    private boolean promotion = false;
+    private Square enPassant = null;
         
     /** Creates a new move with the given parameters */
     Move(Square startSquare, Square endSquare, ChessPiece capturedPiece) {
@@ -36,4 +38,20 @@ public class Move implements Serializable {
     public ChessPiece getCapturedPiece() {
         return capturedPiece;
     }
+    
+    public boolean isPromotion() {
+		return promotion;
+	}
+
+	public void setPromotion(boolean promotion) {
+		this.promotion = promotion;
+	}
+
+	public Square getEnPassant() {
+		return enPassant;
+	}
+
+	public void setEnPassant(Square enPassant) {
+		this.enPassant = enPassant;
+	}
 }

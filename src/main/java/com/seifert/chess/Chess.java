@@ -7,7 +7,10 @@
 package com.seifert.chess;
 
 /**
- *
+ * TODO: Add player points and save them 
+ * 25 if you win, -5 if you lose
+ * level 1 is 100, level 2 is 150, level 3 is 200
+ * save by specific name
  * @author  ZZ3JPZ
  */
 import java.awt.*;
@@ -15,6 +18,9 @@ import java.awt.event.*;
 import java.awt.image.*;
 import javax.swing.*;
 import javax.swing.text.*;
+
+import com.seifert.chess.Chess.FocusHandler;
+
 import javax.swing.event.*;
 import java.applet.*;
 import java.net.*;
@@ -613,6 +619,7 @@ public class Chess extends JFrame {
                             }
                         }  
                         tempBoard.setAllowUndo(false);
+                        tempBoard.setAutoRotate(false);
                         
                         // Write the board object to the file
                         objectOut.writeObject(tempBoard);
@@ -934,6 +941,7 @@ public class Chess extends JFrame {
         JTextField txtName1, txtName2;
         JComboBox cboColor1, cboColor2;
         JCheckBox chkAllowUndo;
+        JCheckBox chkAutoRotate;
         // stores the default background color of a button
         Color colorButton;
         // stores the previously selected index for both color ComboBoxes
@@ -1004,6 +1012,7 @@ public class Chess extends JFrame {
             cboColor2.setSelectedItem(ChessPiece.colorPlayer2);
             
             chkAllowUndo = new JCheckBox("Allow Undo", true);
+            chkAutoRotate = new JCheckBox("Auto Rotate", false);
             
             // create the components containers            
             JPanel panelName1 = new JPanel(new GridLayout(2, 1));            
@@ -1011,6 +1020,7 @@ public class Chess extends JFrame {
             JPanel panelColor1 = new JPanel(new GridLayout(2, 1));                        
             JPanel panelColor2 = new JPanel(new GridLayout(2, 1));            
             JPanel panelAllowUndo = new JPanel(new GridLayout(1, 1));            
+            JPanel panelAutoRotate = new JPanel(new GridLayout(1, 1));
             
             // add the components to their containers
             panelName1.add(lblName1);
@@ -1022,6 +1032,7 @@ public class Chess extends JFrame {
             panelColor2.add(lblColor2);
             panelColor2.add(cboColor2);
             panelAllowUndo.add(chkAllowUndo);            
+            panelAutoRotate.add(chkAutoRotate);
                         
             // create the boxes to contain the player settings
             Box boxPlayer1 = new Box(BoxLayout.Y_AXIS);            
@@ -1048,6 +1059,8 @@ public class Chess extends JFrame {
             boxDialog.add(boxSettings);
             boxDialog.add(Box.createVerticalStrut(10));
             boxDialog.add(panelAllowUndo);
+            //boxDialog.add(Box.createVerticalStrut(10));
+            boxDialog.add(panelAutoRotate);
             
             // create the button panel
             JPanel panelButtons = new JPanel();
@@ -1154,6 +1167,8 @@ public class Chess extends JFrame {
                 this.setCursor(Cursor.getDefaultCursor());
                 // set the allow undo flag accordingly
                 board.setAllowUndo(chkAllowUndo.isSelected());
+                // set the auto rotate flag accordingly
+                board.setAutoRotate(chkAutoRotate.isSelected());
                 logger.info("New board created.");                
                 this.dispose();
             }
@@ -1297,6 +1312,7 @@ public class Chess extends JFrame {
                 refreshBoard(remoteBoard);
                 // set the allow undo flag accordingly
                 board.setAllowUndo(false);
+                board.setAutoRotate(false);
                 logger.info("Connected to remote board at " + remoteURL);
                 this.dispose();
             }
@@ -1446,6 +1462,7 @@ public class Chess extends JFrame {
                 refreshBoard(hostThread.getHostBoard());
                 // set the allow undo flag accordingly
                 board.setAllowUndo(false);
+                board.setAutoRotate(false);
                 logger.info("New board hosted at " + hostURL);
                 this.dispose();
             }

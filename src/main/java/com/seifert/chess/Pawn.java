@@ -133,8 +133,8 @@ public class Pawn extends ChessPiece {
             else if (newIndex1 != currentIndex1 + 1) {
                 return false;
             }
-            else if (newSq.getPiece().getType() == ChessPiece.EMPTY) {
-                return false;
+            else if (newSq.getPiece().getType() == ChessPiece.EMPTY && !isEnPassant(board, newRow, newCol, iDirectionRow, iDirectionCol, false)) {
+        		return false;
             }
         }        
         // the max a pawn can move forward is two spaces, and then only if
@@ -168,4 +168,144 @@ public class Pawn extends ChessPiece {
         // if we get here, it is a valid move        
         return true;
     }
+
+	public boolean canPromote(Square endSquare, int boardPosition) {
+		switch (boardPosition) {
+        case Board.POSITION_1:
+            if (this.getColor().equals(ChessPiece.colorPlayer1)) {
+            	if (endSquare.getRow() == 0) {
+            		return true;
+            	}
+            }
+            else if (endSquare.getRow() == 7) {
+                return true;
+            }
+            break;
+        case Board.POSITION_2:
+        	if (this.getColor().equals(ChessPiece.colorPlayer1)) {
+            	if (endSquare.getCol() == 7) {
+            		return true;
+            	}
+            }
+            else if (endSquare.getCol() == 0) {
+                return true;
+            }
+            break;
+        case Board.POSITION_3:
+        	if (this.getColor().equals(ChessPiece.colorPlayer1)) {
+            	if (endSquare.getRow() == 7) {
+            		return true;
+            	}
+            }
+            else if (endSquare.getRow() == 0) {
+                return true;
+            }
+            break;                                    
+        case Board.POSITION_4:
+        	if (this.getColor().equals(ChessPiece.colorPlayer1)) {
+            	if (endSquare.getCol() == 0) {
+            		return true;
+            	}
+            }
+            else if (endSquare.getCol() == 7) {
+                return true;
+            }
+            break;
+		}    
+		return false;
+	}
+	
+	/**
+	 * A pawn on its fifth rank may capture an enemy pawn on an adjacent file 
+	 * that has moved two squares in a single move, as if the pawn had moved only one square. 
+	 * The conditions are:
+	 * 	   the capturing pawn must be on its fifth rank;
+	 * 	   the captured pawn must be on an adjacent file and must have just moved two squares 
+	 *     in a single move (i.e. a double-step move);
+	 *     the capture can only be made on the move immediately after the opposing pawn makes 
+	 *     the double-step move; otherwise the right to capture it en passant is lost.
+	 */
+	public boolean isEnPassant(Board board, int newRow, int newCol, int iDirectionRow, int iDirectionCol, boolean isRedo) {
+		// the captured pawn would be right behind the new square of this pawn 
+		// and would have just made one move
+		int sqRow = newRow;
+		int sqCol = newCol;
+		switch (board.getPosition()) {
+		case Board.POSITION_1:
+		case Board.POSITION_3:
+			sqRow = newRow - (1 * iDirectionRow);
+			break;
+        case Board.POSITION_2:
+        case Board.POSITION_4:
+        	sqCol = newCol - (1 * iDirectionCol);
+        	break;                
+		}
+		Square sq = board.getSquare(sqRow, sqCol);
+		ChessPiece cp = sq.getPiece();
+		if (cp.getType() != ChessPiece.PAWN || 
+		    cp.getColor().equals(this.getColor()) || 
+		    cp.getNumMoves() != 1) {
+			return false;
+		}
+		if (this.getColor().equals(ChessPiece.colorPlayer1)) {
+			switch (board.getPosition()) {
+			case Board.POSITION_1:
+				if (sq.getRow() != 3) {
+					return false;
+				}
+				break;
+	        case Board.POSITION_2:
+	        	if (sq.getCol() != 4) {
+					return false;
+				}
+	            break;
+	        case Board.POSITION_3:
+	        	if (sq.getRow() != 4) {
+					return false;
+				}
+	            break;                                    
+	        case Board.POSITION_4:
+	        	if (sq.getCol() != 3) {
+					return false;
+				}
+	            break;                
+			}
+		} else {
+			switch (board.getPosition()) {
+			case Board.POSITION_1:
+				if (sq.getRow() != 4) {
+					return false;
+				}
+				break;
+	        case Board.POSITION_2:
+	        	if (sq.getCol() != 3) {
+					return false;
+				}
+	            break;
+	        case Board.POSITION_3:
+	        	if (sq.getRow() != 3) {
+					return false;
+				}
+	            break;                                    
+	        case Board.POSITION_4:
+	        	if (sq.getCol() != 4) {
+					return false;
+				}
+	            break;                
+			}
+		}
+		if (!(board.getLastMove() instanceof Move)) {
+			return false;
+		} else {
+			Move move = (Move) board.getLastMove();
+			if (isRedo) {
+				if (move.getEnPassant() == null) {			
+					return false;
+				}
+			} else if (!move.getEndSquare().equals(sq)) {
+				return false;
+			}
+		}
+		return true;
+	}
 }

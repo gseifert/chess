@@ -11,8 +11,10 @@ package com.seifert.chess;
  * @author  ZZ3JPZ
  */
 import javax.swing.*;
-import javax.swing.border.*;
+
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
 import java.util.*;
 public class Board extends JPanel {
@@ -38,6 +40,7 @@ public class Board extends JPanel {
     private int[] capturedCount = {0, 0};
     private int position = POSITION_1;        
     private boolean allowUndo = true;
+    private boolean autoRotate = false;
     private Vector moves = new Vector();    
     private int redoIndex = 0;    
         
@@ -88,7 +91,11 @@ public class Board extends JPanel {
     /** Gets the player whose turn it is. */
     public int getWhoseMove() {
         return whoseMove;
-    }    
+    }
+    
+    public void setWhoseMove(int player) {
+        whoseMove = player;
+    }
     
     /** Switches whose turn it is */
     public void switchWhoseMove() {
@@ -123,16 +130,70 @@ public class Board extends JPanel {
      *  @param isRedo true if this move is a redo
      */
     public void movePiece(Square startSquare, Square endSquare, boolean isRedo) {
-        // store the move if needed
-        if (!isRedo) {
-            addMove(new Move(startSquare, endSquare, endSquare.getPiece()));
-        }
         // get the piece that is being moved
         ChessPiece movingPiece = startSquare.getPiece();
+        // get the piece on the square that the piece is trying to move to
+        // or the target pawn if en passant
+    	ChessPiece targetPiece = endSquare.getPiece();
+    	Square sqEnPassant = null;
+		if (targetPiece.getType() == ChessPiece.EMPTY && movingPiece.getType() == ChessPiece.PAWN) {
+	    	// get the row and column of the square that the piece wants to move to
+	        int newRow = endSquare.getRow();
+	        int newCol = endSquare.getCol();
+	        // get the current row and column of the square that the piece is on
+	        int currentRow = startSquare.getRow();
+	        int currentCol = startSquare.getCol();        
+	        // get the instance of the board
+	        Board board = (Board)startSquare.getParent().getParent();                
+	        
+	        // get the direction of the move
+	        int iDirectionRow, iDirectionCol;
+	        if (newRow > currentRow) {
+	            iDirectionRow = 1;
+	        }
+	        else if (newRow < currentRow) {
+	            iDirectionRow = -1;            
+	        }        
+	        else {
+	            iDirectionRow = 0;
+	        }        
+	        if (newCol > currentCol) {
+	            iDirectionCol = 1;
+	        }
+	        else if (newCol < currentCol) {
+	            iDirectionCol = -1;            
+	        }
+	        else {
+	            iDirectionCol = 0;
+	        }
+	        
+	        if (((Pawn) movingPiece).isEnPassant(board, newRow, newCol, iDirectionRow, iDirectionCol, isRedo)) {
+		        int sqRow = newRow;
+				int sqCol = newCol;
+				switch (board.getPosition()) {
+				case Board.POSITION_1:
+				case Board.POSITION_3:
+					sqRow = newRow - (1 * iDirectionRow);
+					break;
+		        case Board.POSITION_2:
+		        case Board.POSITION_4:
+		        	sqCol = newCol - (1 * iDirectionCol);
+		        	break;                
+				}
+				sqEnPassant = board.getSquare(sqRow, sqCol);
+				targetPiece = sqEnPassant.getPiece();
+				sqEnPassant.setPiece(new ChessPiece(null, ChessPiece.EMPTY));
+	        }
+        }
+        // store the move if needed
+    	Move move = null;
+        if (!isRedo) {
+        	move = new Move(startSquare, endSquare, targetPiece);
+        	move.setEnPassant(sqEnPassant);
+            addMove(move);
+        }
         // log the move            
         Chess.logger.info((isRedo ? "REDO: " : "") + playerName[whoseMove - 1] + " moved " + movingPiece.getTypeDesc() + " from " + startSquare.getRow() + "," + startSquare.getCol() + " to " + endSquare.getRow() + "," + endSquare.getCol());        
-        // get the piece on the square that the piece is trying to move to
-        ChessPiece targetPiece = endSquare.getPiece();
         // set the moving piece on the ending square
         endSquare.setPiece(movingPiece);
         // set a blank piece on the starting square
@@ -155,29 +216,50 @@ public class Board extends JPanel {
             Chess.logger.info(targetPiece.getTypeDesc() + " captured.");
         }        
         
+        // check for pawn promotion
+        if (movingPiece instanceof Pawn && ((Pawn) movingPiece).canPromote(endSquare, this.getPosition())) {
+        	if (move != null) {
+        		move.setPromotion(true);
+        	}
+        	PawnPromotionDialog pawnPromotionDialog = new PawnPromotionDialog(this, endSquare, (Pawn) movingPiece);
+        	pawnPromotionDialog.pack();
+        	pawnPromotionDialog.setLocationRelativeTo(this);
+        	pawnPromotionDialog.setVisible(true);
+        }
+        
         // check to see if player is in check or check mate
         int chk = this.check(whoseMove, true);
         if (chk == Board.CHECK) {
+        	Chess.playSound("sounds/check.wav");
             // alert the user
             JOptionPane.showMessageDialog(this.getTopLevelAncestor(), "Check.", "Check", JOptionPane.INFORMATION_MESSAGE);
             // log the check
             Chess.logger.info(playerName[whoseMove - 1] + " is in check.");
         }
         else if (chk == Board.CHECK_MATE) {
+        	Chess.playSound("sounds/check_mate.wav");
             // indicate that the game is over                    
             String msg = "Check Mate.  " + playerName[player - 1] + " wins.";
             JOptionPane.showMessageDialog(this.getTopLevelAncestor(), msg, "Check Mate", JOptionPane.INFORMATION_MESSAGE);
             whoseMove = GAME_OVER + player;
             // log the check mate
             Chess.logger.info(msg);
-        }        
+        }
+        
+        if (this.isAutoRotate() && !(this instanceof NetBoard)) {
+    		this.rotate();
+			Chess chess = (Chess) this.getTopLevelAncestor();
+            chess.setFiller(this.getPosition());
+            this.rotate();
+        	chess.setFiller(this.getPosition());
+        }
         
         // refresh the screen
         this.validate();
         this.repaint();
     }
-    
-    /** Returns whether or not this board allows undos */
+
+	/** Returns whether or not this board allows undos */
     public boolean getAllowUndo() {
         return allowUndo;
     }
@@ -187,7 +269,15 @@ public class Board extends JPanel {
         this.allowUndo = allowUndo;
     }
     
-    /** Gets the last move */
+    public boolean isAutoRotate() {
+		return autoRotate;
+	}
+
+	public void setAutoRotate(boolean autoRotate) {
+		this.autoRotate = autoRotate;
+	}
+
+	/** Gets the last move */
     public Object getLastMove() {
         return moves.lastElement();
     }
@@ -244,10 +334,20 @@ public class Board extends JPanel {
             Move m = (Move)move;
             Square endSq = m.getEndSquare();
             ChessPiece movedPiece = endSq.getPiece();
-            movedPiece.decrementNumMoves();
+            if (m.isPromotion()) {
+            	movedPiece = new Pawn(movedPiece.getColor());
+            	movedPiece.addMouseListener(m.getStartSquare().new DragMouseHandler());
+            } else {
+            	movedPiece.decrementNumMoves();
+            }
             m.getStartSquare().setPiece(movedPiece);
             ChessPiece capturedPiece = m.getCapturedPiece();
-            endSq.setPiece(capturedPiece);
+            if (m.getEnPassant() != null) {
+            	m.getEnPassant().setPiece(capturedPiece);
+            	endSq.setPiece(new ChessPiece(null, ChessPiece.EMPTY));
+            } else {
+            	endSq.setPiece(capturedPiece);
+            }
          
             // update whose move it is                  
             switchWhoseMove();
@@ -497,8 +597,8 @@ public class Board extends JPanel {
      *              and save static fields as optional data.
      */
     private void writeObject(ObjectOutputStream out) throws IOException {        
-	// Take care of this class's serializable fields first by calling defaultWriteObject
-	out.defaultWriteObject();
+    	// Take care of this class's serializable fields first by calling defaultWriteObject
+    	out.defaultWriteObject();
 	        
         // Square's static fields
         out.writeObject(Square.colorSquare1);
@@ -521,5 +621,76 @@ public class Board extends JPanel {
         // ChessPiece's static fields
         ChessPiece.colorPlayer1 = (Color)in.readObject();        
         ChessPiece.colorPlayer2 = (Color)in.readObject();            
+    }
+    
+    /** Implements the dialog box for the user to select the piece to promote his pawn to */
+    class PawnPromotionDialog extends JDialog implements ActionListener {
+    	Board board;
+    	Square endSquare;
+    	Queen queen;
+    	Rook rook;
+    	Bishop bishop;
+    	Knight knight;
+        PawnPromotionDialog(Board board, Square endSquare, Pawn pawn) {
+        	super((Chess)board.getTopLevelAncestor(), "Pawn Promotion", true);
+        	this.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        	this.board = board;
+        	this.endSquare = endSquare;
+            Container contentPane = getContentPane();
+            contentPane.setLayout(new BorderLayout());
+
+            JLabel lblMsg = new JLabel("Please select a piece to promote this pawn to: (yay for you)");
+            JPanel panelMsg = new JPanel(new GridLayout(1, 1));
+            panelMsg.add(lblMsg);
+            
+            // create the button panel
+            Color color = pawn.getColor();
+            this.queen = new Queen(color);
+            this.rook = new Rook(color);
+            this.bishop = new Bishop(color);
+            this.knight = new Knight(color);
+            JPanel panelButtons = new JPanel(new GridLayout(1, 4));
+            JButton btnQueen = new JButton(this.queen.getIcon());
+            getRootPane().setDefaultButton(btnQueen);
+            btnQueen.setActionCommand("Queen");
+            btnQueen.addActionListener(this);
+            JButton btnRook = new JButton(this.rook.getIcon());
+            btnRook.setActionCommand("Rook");
+            btnRook.addActionListener(this);
+            JButton btnBishop = new JButton(this.bishop.getIcon());
+            btnBishop.setActionCommand("Bishop");
+            btnBishop.addActionListener(this);
+            JButton btnKnight = new JButton(this.knight.getIcon());
+            btnKnight.setActionCommand("Knight");
+            btnKnight.addActionListener(this);
+            panelButtons.add(btnQueen);            
+            panelButtons.add(btnRook);
+            panelButtons.add(btnBishop);
+            panelButtons.add(btnKnight);
+            
+            // add everything to the dialog window
+            contentPane.add(panelMsg, BorderLayout.NORTH);
+            contentPane.add(panelButtons, BorderLayout.CENTER);
+        }
+        
+        public void actionPerformed(ActionEvent e) {
+        	ChessPiece newPiece;
+            if ("Queen".equals(e.getActionCommand())) {
+            	newPiece = this.queen;
+            }
+            else if ("Rook".equals(e.getActionCommand())) {
+            	newPiece = this.rook;
+            }
+            else if ("Bishop".equals(e.getActionCommand())) {
+            	newPiece = this.bishop;
+            }
+            else { //if ("Knight".equals(e.getActionCommand())) {
+            	newPiece = this.knight;                
+            }
+            newPiece.addMouseListener(endSquare.new DragMouseHandler());
+            endSquare.setPiece(newPiece);
+            newPiece.setPromoted(true);
+            this.dispose();
+        }
     }
 }

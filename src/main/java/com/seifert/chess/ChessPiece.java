@@ -31,7 +31,8 @@ public class ChessPiece extends JLabel {
     private int type;                   // the type of the piece
     private Color color;                // the color of the piece
     private int numMoves;               // the number of moves the piece has made
-    private boolean captured = false;   // whether or not the piece is captured   
+    private boolean captured = false;   // whether or not the piece is captured
+    private boolean promoted = false;
     
     /** Creates a new instance of ChessPiece */
     public ChessPiece(Color color, int type) {
@@ -206,4 +207,12 @@ public class ChessPiece extends JLabel {
     public boolean isValidMove(Square endSquare, boolean check) {        
         return false;        
     }
+
+	public boolean isPromoted() {
+		return promoted;
+	}
+
+	public void setPromoted(boolean promoted) {
+		this.promoted = promoted;
+	}
 }
